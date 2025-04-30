@@ -3,7 +3,7 @@ from discord.ext import commands
 
 import json
 with open("Token.json", "r") as flie:
-	data = json.load(flie)
+	data = json.load(f)
 
 
 bot = commands.Bot(command_prefix="$", intents=discord.Intents.all())
