@@ -1,4 +1,4 @@
-# crawlers/notice_detail.py
+# crawlers/school_notice_detail.py
 from urllib.parse import urljoin
 import requests
 from bs4 import BeautifulSoup
@@ -19,6 +19,9 @@ def fetch_notice_detail(detail_url: str) -> dict:
     wrap = soup.select_one(".view_wrap") or soup.body
     if wrap is None:
         return {"text": "", "images": [], "files": []}
+    
+    for bad in wrap.select(".view_subject, .meta"):
+        bad.decompose()
 
     for tag in wrap.select("script, style, noscript"):
         tag.decompose()

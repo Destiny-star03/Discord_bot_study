@@ -9,8 +9,9 @@ ONCLICK_RE = re.compile(
     r"(?:javascript:\s*)?"
     r"fn_egov_inqire_notice(?:_mbldn)?"
     r"\(\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]+)['\"]\s*(?:,\s*this\s*)?\)\s*;?",
-    re.IGNORECASE
+    re.IGNORECASE,
 )
+
 
 def _to_int_or_none(text: str) -> int | None:
     try:
@@ -18,13 +19,14 @@ def _to_int_or_none(text: str) -> int | None:
     except Exception:
         return None
 
+
 def fetch_school_notices(list_url: str, limit: int = 10) -> list[Notice]:
     truststore.inject_into_ssl()
     res = requests.get(list_url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
     res.raise_for_status()
     if not res.encoding:
         res.encoding = res.apparent_encoding
-    
+
     # print(res.text + "\n -----------------------------------")
     # res.text 에 결과 전체가 담김 -> 결과 에서 내가 개수를 정해서 분리해야함
     soup = BeautifulSoup(res.text, "html.parser")
@@ -34,16 +36,16 @@ def fetch_school_notices(list_url: str, limit: int = 10) -> list[Notice]:
 
     for tr in soup.select("table tbody tr"):
         # print(f"tr확인하기{tr}")
-        td_num2 =  tr.select_one("td.td_num2")
+        td_num2 = tr.select_one("td.td_num2")
         if not td_num2:
             continue
-        #상단 공지글 분별하는 로직
+        # 상단 공지글 분별하는 로직
         num_text = td_num2.get_text(strip=True)
         if not num_text.isdigit():
             continue
         print(f"이미지 확인하기{num_text}")
 
-        #td 안 subject요소 가져오기
+        # td 안 subject요소 가져오기
         subject_td = tr.select_one("td.td_subject")
         print(f"-----------{subject_td}")
 
@@ -67,9 +69,6 @@ def fetch_school_notices(list_url: str, limit: int = 10) -> list[Notice]:
         notice_id = ntt_id
 
         full_url = f"https://www.yc.ac.kr/yonam/web/cop/bbs/selectBoardArticle.do?bbsId={bbs_id}&nttId={ntt_id}"
-
-        
-
 
         if notice_id in seen_ids:
             continue
@@ -104,31 +103,3 @@ def fetch_school_notices(list_url: str, limit: int = 10) -> list[Notice]:
             break
 
     return notices
-
-
-def _clean_text(text: str) -> str:
-    lines = [line.strip() for line in text.splitlines()]
-    lines = [line for line in lines if line]
-    return "\n".join(lines)
-
-def fetch_notice_detail(detail_url: str) -> dict:
-    res = requests.get(detail_url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
-    res.raise_for_status()
-    if not res.encoding:
-        res.encoding = res.apparent_encoding
-
-    soup = BeautifulSoup(res.text, "html.parser")
-
-    wrap = soup.select_one(".view_wrap") or soup.body
-    if wrap is None:
-        return {"text": "", "images": [], "files": []}
-
-    for tag in wrap.select("script, style, noscript"):
-        tag.decompose()
-
-    text = _clean_text(wrap.get_text("\n", strip=True))
-
-    images = [urljoin(detail_url, img["src"]) for img in wrap.select("img[src]")]
-    files = [urljoin(detail_url, a["href"]) for a in wrap.select("a[href]")]
-
-    return {"text": text, "images": images, "files": files}
