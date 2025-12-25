@@ -27,7 +27,6 @@ def fetch_school_notices(list_url: str, limit: int = 10) -> list[Notice]:
     if not res.encoding:
         res.encoding = res.apparent_encoding
 
-    # print(res.text + "\n -----------------------------------")
     # res.text 에 결과 전체가 담김 -> 결과 에서 내가 개수를 정해서 분리해야함
     soup = BeautifulSoup(res.text, "html.parser")
 
@@ -43,27 +42,19 @@ def fetch_school_notices(list_url: str, limit: int = 10) -> list[Notice]:
         num_text = td_num2.get_text(strip=True)
         if not num_text.isdigit():
             continue
-        print(f"이미지 확인하기{num_text}")
+        # print(f"이미지 확인하기{num_text}")
 
         # td 안 subject요소 가져오기
         subject_td = tr.select_one("td.td_subject")
-        print(f"-----------{subject_td}")
+        # print(f"-----------{subject_td}")
 
         if not subject_td:
             continue
-
-        # print(f"씨빨 \t {subject_td}")
         onclick = subject_td.get("onclick", "")
-        # print(f"정성용 보고 있냐 \t {onclick}")
-        # onclick 에는 javascript:fn_egov_inqire_notice('BBSMSTR_000000000590', '79136'); 데이터가 들어감
-        # 여기서 BBSMSTR_000000000590 과 79136 를 bbs_id 와 ntt_id 두개로 분리 해야함.
         m = ONCLICK_RE.search(onclick)
-        # print(f"씨빨3 \t {m}")
+
         if not m:
             continue
-
-        # print(f"m1111111{m.group(1)}")
-        # print(f"2222222222{m.group(2)}")
 
         bbs_id, ntt_id = m.group(1), m.group(2)
         notice_id = ntt_id

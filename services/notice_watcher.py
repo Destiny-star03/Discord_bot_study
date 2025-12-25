@@ -2,47 +2,70 @@
 import asyncio
 import json
 import os
-import discord
 import io
 import requests
+import discord
 from discord import AllowedMentions
 from discord.ext import commands, tasks
 
 from config import (
     SCHOOL_NOTICE_URL,
     SCHOOL_NOTICE_CHANNEL_ID,
+    DEPT_NOTICE_URL,
+    DEPT_NOTICE_CHANNEL_ID,
     CHECK_INTERVAL_SECONDS,
     STATE_FILE,
     ROLE_ID_TEST,
 )
+
 from crawler.school_notice import fetch_school_notices
-from crawler.school_notice_detail import fetch_notice_detail
+from crawler.dept_notice import fetch_dept_notices
+from crawler.school_notice_detail import (
+    fetch_notice_detail as fetch_school_notice_detail,
+)
+from crawler.dept_notice_detail import fetch_notice_detail as fetch_dept_notice_detail
+
 from models.notice import Notice
 
 allowed = AllowedMentions(roles=True)
 
 
-def _load_last_id() -> str | None:
+# ─────────────────────────────────────────────────────────
+# STATE (학교/학과 key를 같은 파일에 같이 저장)
+# ─────────────────────────────────────────────────────────
+def _load_state() -> dict:
     if not os.path.exists(STATE_FILE):
-        return None
+        return {}
     try:
         with open(STATE_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        return data.get("last_school_notice_id")
+            return json.load(f) or {}
     except Exception:
-        return None
+        return {}
 
 
-def _save_last_id(last_id: str) -> None:
-    data = {"last_school_notice_id": last_id}
+def _save_state(state: dict) -> None:
     with open(STATE_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+        json.dump(state, f, ensure_ascii=False, indent=2)
 
 
+def _get_last_id(state_key: str) -> str | None:
+    state = _load_state()
+    return state.get(state_key)
+
+
+def _set_last_id(state_key: str, last_id: str) -> None:
+    state = _load_state()
+    state[state_key] = last_id
+    _save_state(state)
+
+
+# ─────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────
 def _pick_new_notices(notices: list[Notice], last_id: str | None) -> list[Notice]:
     # notices는 최신순(0번이 최신)이라고 가정
     if last_id is None:
-        # 최초 실행: 스팸 방지로 최신 1개만(원하면 []로 바꿔서 첫 실행에 알림 0개 가능)
+        # 최초 실행: 스팸 방지로 최신 1개만
         return notices[:1]
 
     new_items: list[Notice] = []
@@ -71,9 +94,34 @@ async def _download_bytes(url: str, referer: str | None = None) -> tuple[bytes, 
     return await asyncio.to_thread(_get)
 
 
-class SchoolNoticeWatcher:
-    def __init__(self, bot: commands.Bot):
+# ─────────────────────────────────────────────────────────
+# 통합 Watcher
+# ─────────────────────────────────────────────────────────
+class NoticeWatcher:
+    """
+    같은 로직으로 '학교공지/학과공지' 둘 다 돌릴 수 있도록 설정값만 주입하는 Watcher
+    """
+
+    def __init__(
+        self,
+        bot: commands.Bot,
+        *,
+        list_url: str,
+        channel_id: int,
+        state_key: str,  # 예: "last_school_notice_id"
+        fetch_list_func,
+        fetch_detail_func,
+        limit: int = 3,
+        label: str = "공지",  # 출력 앞머리 라벨
+    ):
         self.bot = bot
+        self.list_url = list_url
+        self.channel_id = channel_id
+        self.state_key = state_key
+        self.fetch_list_func = fetch_list_func
+        self.fetch_detail_func = fetch_detail_func
+        self.limit = limit
+        self.label = label
         self._started = False
 
     def start(self) -> None:
@@ -86,22 +134,22 @@ class SchoolNoticeWatcher:
     async def loop(self):
         await self.bot.wait_until_ready()
 
-        # 채널 가져오기(캐시에 없으면 fetch)
-        channel = self.bot.get_channel(SCHOOL_NOTICE_CHANNEL_ID)
+        # 채널 가져오기
+        channel = self.bot.get_channel(self.channel_id)
         if channel is None:
             try:
-                channel = await self.bot.fetch_channel(SCHOOL_NOTICE_CHANNEL_ID)
+                channel = await self.bot.fetch_channel(self.channel_id)
             except Exception:
                 return
-
         if not isinstance(channel, discord.abc.Messageable):
             return
 
-        last_id = _load_last_id()
+        last_id = _get_last_id(self.state_key)
 
+        # 목록 가져오기(스레드)
         try:
-            notices = await asyncio.to_thread(
-                fetch_school_notices, SCHOOL_NOTICE_URL, 6
+            notices: list[Notice] = await asyncio.to_thread(
+                self.fetch_list_func, self.list_url, self.limit
             )
         except Exception:
             return
@@ -110,15 +158,13 @@ class SchoolNoticeWatcher:
             return
 
         new_notices = _pick_new_notices(notices, last_id)
-
         if not new_notices:
             return
 
-        # 오래된 것부터 보내기
+        # 오래된 것부터
         for n in reversed(new_notices):
-
             try:
-                detail = await asyncio.to_thread(fetch_notice_detail, n.url)
+                detail = await asyncio.to_thread(self.fetch_detail_func, n.url)
             except Exception:
                 detail = {"text": "", "images": [], "files": []}
 
@@ -127,8 +173,8 @@ class SchoolNoticeWatcher:
             files = detail.get("files", [])
 
             msg = (
-                f"\n\n\n"
-                f"\n📢[ **{n.title}** ]\n"
+                f"\n📢 **새 {self.label}**\n"
+                f"[ **{n.title}** ]\n"
                 f"- 부서: {n.dept or '-'} / 날짜: {n.date or '-'} / 조회수: {n.views if n.views is not None else '-'}\n"
             )
 
@@ -136,10 +182,13 @@ class SchoolNoticeWatcher:
                 msg += f"\n{body}"
 
             if files:
-                msg += f"\n\n[ 첨부파일은 아래 링크에 들어가 확인해주세요 ]"
+                msg += "\n\n[ 첨부파일은 아래 링크에서 확인해주세요 ]"
 
-            # 이미지/첨부는 너무 많이 보내지 말고 첫 개만
+            msg += f"\n\n🔗 공지 바로가기:\n{n.url}\n"
+            msg += f"\n<@&{ROLE_ID_TEST}>"
+            msg += "\n======================================="
 
+            # 이미지 있으면 첨부+embed, 없으면 텍스트
             if images:
                 img_url = images[0]
                 try:
@@ -156,29 +205,50 @@ class SchoolNoticeWatcher:
                     filename = f"notice.{ext}"
                     file = discord.File(fp=io.BytesIO(img_bytes), filename=filename)
 
-                    # ✅ 이미지가 보이도록 embed에 attachment 연결
                     embed = discord.Embed()
                     embed.set_image(url=f"attachment://{filename}")
 
-                    msg += f"\n\n🔗 공지 바로가기: \n{n.url}\n\n"
-                    msg += f"\n<@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> "
-                    msg += f"\n======================================="
-
-                    await channel.send(content=msg, file=file, embed=embed)
-                    # ✅ 기존 msg는 그대로 content로 보내고, 파일+embed를 같이 전송
-
+                    await channel.send(
+                        content=msg,
+                        file=file,
+                        embed=embed,
+                        allowed_mentions=allowed,
+                    )
                 except Exception:
-                    # 실패하면 링크라도 남김(이미지 못 받아오는 경우 대비)
-                    msg += f"\n\n🔗 공지 바로가기: \n{n.url}\n\n"
-                    msg += f"\n<@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> "
-                    msg += f"\n======================================="
-                    await channel.send(msg)
-
+                    # 이미지 실패 시 링크만
+                    msg += f"\n(이미지 링크): {img_url}\n"
+                    await channel.send(msg, allowed_mentions=allowed)
             else:
-                msg += f"\n\n🔗 공지 바로가기: \n{n.url}\n\n"
-                msg += f"\n<@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> "
-                msg += f"\n======================================="
-                await channel.send(msg)
+                await channel.send(msg, allowed_mentions=allowed)
 
-        # 최신 공지 ID 저장
-        _save_last_id(notices[0].notice_id)
+        # 최신 공지 ID 저장(가장 최신 0번)
+        _set_last_id(self.state_key, notices[0].notice_id)
+
+
+# ─────────────────────────────────────────────────────────
+# 생성 헬퍼(메인에서 간단히 사용)
+# ─────────────────────────────────────────────────────────
+def create_school_notice_watcher(bot: commands.Bot) -> NoticeWatcher:
+    return NoticeWatcher(
+        bot,
+        list_url=SCHOOL_NOTICE_URL,
+        channel_id=SCHOOL_NOTICE_CHANNEL_ID,
+        state_key="last_school_notice_id",
+        fetch_list_func=fetch_school_notices,
+        fetch_detail_func=fetch_school_notice_detail,
+        limit=3,
+        label="학교 공지",
+    )
+
+
+def create_dept_notice_watcher(bot: commands.Bot) -> NoticeWatcher:
+    return NoticeWatcher(
+        bot,
+        list_url=DEPT_NOTICE_URL,
+        channel_id=DEPT_NOTICE_CHANNEL_ID,
+        state_key="last_dept_notice_id",
+        fetch_list_func=fetch_dept_notices,
+        fetch_detail_func=fetch_dept_notice_detail,
+        limit=3,
+        label="학과 공지",
+    )
