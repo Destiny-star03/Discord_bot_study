@@ -1,3 +1,4 @@
+# main
 from config import DISCORD_TOKEN
 import discord
 import truststore

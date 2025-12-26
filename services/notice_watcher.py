@@ -16,6 +16,10 @@ from config import (
     CHECK_INTERVAL_SECONDS,
     STATE_FILE,
     ROLE_ID_TEST,
+    ROLE_ID_1,
+    ROLE_ID_2,
+    ROLE_ID_3,
+    ROLE_ID_4,
 )
 
 from crawler.school_notice import fetch_school_notices
@@ -182,10 +186,10 @@ class NoticeWatcher:
                 msg += f"\n{body}"
 
             if files:
-                msg += "\n\n[ 첨부파일은 아래 링크에서 확인해주세요 ]"
+                msg += "\n\n📎 첨부파일이 있습니다. (공지 링크에서 확인)"
 
             msg += f"\n\n🔗 공지 바로가기:\n{n.url}\n"
-            msg += f"\n<@&{ROLE_ID_TEST}>"
+            msg += f"\n<@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}>"
             msg += "\n======================================="
 
             # 이미지 있으면 첨부+embed, 없으면 텍스트
@@ -215,8 +219,6 @@ class NoticeWatcher:
                         allowed_mentions=allowed,
                     )
                 except Exception:
-                    # 이미지 실패 시 링크만
-                    msg += f"\n(이미지 링크): {img_url}\n"
                     await channel.send(msg, allowed_mentions=allowed)
             else:
                 await channel.send(msg, allowed_mentions=allowed)
@@ -249,6 +251,6 @@ def create_dept_notice_watcher(bot: commands.Bot) -> NoticeWatcher:
         state_key="last_dept_notice_id",
         fetch_list_func=fetch_dept_notices,
         fetch_detail_func=fetch_dept_notice_detail,
-        limit=3,
+        limit=1,
         label="학과 공지",
     )

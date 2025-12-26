@@ -34,7 +34,7 @@ def fetch_dept_notices(list_url: str, limit: int = 10) -> list[Notice]:
     seen_ids: set[str] = set()
 
     for tr in soup.select("table tbody tr"):
-        print(f"tr확인하기{tr}")
+        # print(f"tr확인하기{tr}")
         td_num2 = tr.select_one("td.td_num2")
         if not td_num2:
             continue
@@ -59,7 +59,7 @@ def fetch_dept_notices(list_url: str, limit: int = 10) -> list[Notice]:
         bbs_id, ntt_id = m.group(1), m.group(2)
         notice_id = ntt_id
 
-        full_url = f"https://www.yc.ac.kr/smartsw/web/cop/bbs/selectBoardList.do?bbsId={bbs_id}&nttId={ntt_id}"
+        full_url = f"https://www.yc.ac.kr/smartsw/web/cop/bbs/selectBoardArticle.do?bbsId={bbs_id}&nttId={ntt_id}"
 
         if notice_id in seen_ids:
             continue

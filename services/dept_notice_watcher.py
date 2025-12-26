@@ -1,3 +1,4 @@
+"""
 # services/notice_watcher.py
 import asyncio
 import json
@@ -180,3 +181,4 @@ class DeptNoticeWatcher:
 
         # 최신 공지 ID 저장
         _save_last_id(notices[0].notice_id)
+"""

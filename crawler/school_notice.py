@@ -1,5 +1,7 @@
 # crawlers/school_notice.py
 import re
+from urllib.parse import urlsplit
+
 import requests
 from bs4 import BeautifulSoup
 import truststore
@@ -20,6 +22,26 @@ def _to_int_or_none(text: str) -> int | None:
         return None
 
 
+def _build_detail_url(list_url: str, bbs_id: str, ntt_id: str) -> str:
+    """
+    list_url(학교/학과)를 기준으로 같은 경로의 selectBoardArticle.do로 자동 조합
+    예) .../yonam/web/cop/bbs/selectBoardList.do  -> .../yonam/web/cop/bbs/selectBoardArticle.do
+    """
+    parts = urlsplit(list_url)
+    base = f"{parts.scheme}://{parts.netloc}"
+
+    # list_url 경로에서 List.do만 Article.do로 교체
+    path = parts.path
+    if path.endswith("selectBoardList.do"):
+        path = path.replace("selectBoardList.do", "selectBoardArticle.do")
+    else:
+        # 혹시 경로가 달라도 최소한 bbs 폴더로 붙이기
+        # (필요시 조정)
+        path = path.rsplit("/", 1)[0] + "/selectBoardArticle.do"
+
+    return f"{base}{path}?bbsId={bbs_id}&nttId={ntt_id}"
+
+
 def fetch_school_notices(list_url: str, limit: int = 10) -> list[Notice]:
     truststore.inject_into_ssl()
     res = requests.get(list_url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
@@ -34,32 +56,34 @@ def fetch_school_notices(list_url: str, limit: int = 10) -> list[Notice]:
     seen_ids: set[str] = set()
 
     for tr in soup.select("table tbody tr"):
-        # print(f"tr확인하기{tr}")
         td_num2 = tr.select_one("td.td_num2")
         if not td_num2:
             continue
-        # 상단 공지글 분별하는 로직
+
+        # 상단 공지(아이콘/빈값) 제외
         num_text = td_num2.get_text(strip=True)
         if not num_text.isdigit():
             continue
-        # print(f"이미지 확인하기{num_text}")
 
-        # td 안 subject요소 가져오기
         subject_td = tr.select_one("td.td_subject")
-        # print(f"-----------{subject_td}")
-
         if not subject_td:
             continue
-        onclick = subject_td.get("onclick", "")
-        m = ONCLICK_RE.search(onclick)
 
+        # ✅ (수정1) onclick이 td에 없으면 td 내부의 아무 요소나 찾아서 가져오기
+        onclick = subject_td.get("onclick", "")
+        if not onclick:
+            inner = subject_td.select_one("[onclick]")
+            onclick = inner.get("onclick", "") if inner else ""
+
+        m = ONCLICK_RE.search(onclick)
         if not m:
             continue
 
         bbs_id, ntt_id = m.group(1), m.group(2)
         notice_id = ntt_id
 
-        full_url = f"https://www.yc.ac.kr/yonam/web/cop/bbs/selectBoardArticle.do?bbsId={bbs_id}&nttId={ntt_id}"
+        # ✅ (수정2) list_url 기반으로 상세 URL 자동 생성
+        full_url = _build_detail_url(list_url, bbs_id, ntt_id)
 
         if notice_id in seen_ids:
             continue
@@ -67,6 +91,7 @@ def fetch_school_notices(list_url: str, limit: int = 10) -> list[Notice]:
 
         for tag in subject_td.select("a.new_icon"):
             tag.decompose()
+
         title = subject_td.get_text(" ", strip=True)
         if not title:
             continue
