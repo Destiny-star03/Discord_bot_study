@@ -2,11 +2,10 @@
 import re
 from urllib.parse import urlsplit
 
-import requests
-import truststore
 from bs4 import BeautifulSoup
-
 from models.notice import Notice
+from utils.http_client import get as http_get
+
 
 ONCLICK_RE = re.compile(
     r"(?:javascript:\s*)?"
@@ -53,9 +52,7 @@ def _extract_onclick(subject_td) -> str:
 
 
 def fetch_notices(list_url: str, limit: int = 10) -> list[Notice]:
-    truststore.inject_into_ssl()
-
-    res = requests.get(list_url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+    res = http_get(list_url, timeout=15)
     res.raise_for_status()
     if not res.encoding:
         res.encoding = res.apparent_encoding
@@ -70,7 +67,6 @@ def fetch_notices(list_url: str, limit: int = 10) -> list[Notice]:
         if not td_num2:
             continue
 
-        # 상단 공지(아이콘/빈값) 제외
         num_text = td_num2.get_text(strip=True)
         if not num_text.isdigit():
             continue
@@ -86,12 +82,10 @@ def fetch_notices(list_url: str, limit: int = 10) -> list[Notice]:
 
         bbs_id, ntt_id = m.group(1), m.group(2)
         notice_id = ntt_id
-
         if notice_id in seen_ids:
             continue
         seen_ids.add(notice_id)
 
-        # NEW 아이콘 제거 후 title 정리
         for tag in subject_td.select("a.new_icon"):
             tag.decompose()
 
