@@ -22,8 +22,9 @@ from config import (
     ROLE_ID_4,
 )
 
-from crawler.school_notice import fetch_school_notices
-from crawler.dept_notice import fetch_dept_notices
+# from crawler.school_notice import fetch_school_notices
+# from crawler.dept_notice import fetch_dept_notices
+from crawler.notices import fetch_school_notices, fetch_dept_notices
 from crawler.school_notice_detail import (
     fetch_notice_detail as fetch_school_notice_detail,
 )
@@ -98,6 +99,20 @@ async def _download_bytes(url: str, referer: str | None = None) -> tuple[bytes, 
     return await asyncio.to_thread(_get)
 
 
+def _looks_like_broken_table_text(t: str) -> bool:
+    lines = [ln.strip() for ln in t.splitlines() if ln.strip()]
+    if len(lines) < 40:
+        return False
+    short_ratio = sum(1 for ln in lines if len(ln) <= 2) / len(lines)
+    # "수", "시", "호" 같은 단문 라인이 비정상적으로 많으면 표/전단지 텍스트일 확률이 큼
+    if short_ratio >= 0.30:
+        return True
+    # 줄이 너무 많아도 위험 신호
+    if len(lines) >= 120:
+        return True
+    return False
+
+
 # ─────────────────────────────────────────────────────────
 # 통합 Watcher
 # ─────────────────────────────────────────────────────────
@@ -115,7 +130,7 @@ class NoticeWatcher:
         state_key: str,  # 예: "last_school_notice_id"
         fetch_list_func,
         fetch_detail_func,
-        limit: int = 3,
+        limit: int = 10,
         label: str = "공지",  # 출력 앞머리 라벨
     ):
         self.bot = bot
@@ -172,19 +187,25 @@ class NoticeWatcher:
             except Exception:
                 detail = {"text": "", "images": [], "files": []}
 
-            body = _trim(detail.get("text", ""), 1500)
-            image_urls = detail.get("images", [])
-            image_blobs = detail.get("image_blobs", [])
-            files = detail.get("files", [])
+            body_raw = detail.get("text", "") or ""
+            image_urls = detail.get("images", []) or []
+            image_blobs = detail.get("image_blobs", []) or []
+            files = detail.get("files", []) or []
 
             msg = (
                 f"\n📢 **새 {self.label}**\n"
                 f"[ **{n.title}** ]\n"
                 f"- 부서: {n.dept or '-'} / 날짜: {n.date or '-'} / 조회수: {n.views if n.views is not None else '-'}\n"
             )
+            has_any_image = bool(image_urls) or bool(image_blobs)
 
-            if body:
-                msg += f"\n{body}"
+            # ✅ 전단지/표로 인해 텍스트가 깨져보이면(그리고 이미지가 있으면) 본문 생략
+            if has_any_image and _looks_like_broken_table_text(body_raw):
+                msg += "\n📌 본문이 표/전단지 형식이라 이미지와 링크로 안내합니다."
+            else:
+                body = _trim(body_raw, 1500)
+                if body:
+                    msg += f"\n{body}"
 
             if files:
                 msg += "\n\n📎 첨부파일이 있습니다. (공지 링크에서 확인)"
@@ -194,15 +215,17 @@ class NoticeWatcher:
             msg += "\n======================================="
 
             # 이미지 있으면 첨부+embed, 없으면 텍스트
-            if image_urls or image_blobs:
-                files_to_send = []
-                embeds_to_send = []
+            if has_any_image:
+                files_to_send: list[discord.File] = []
+                embeds_to_send: list[discord.Embed] = []
 
                 idx = 1
 
-                for blob in image_blobs[:2]:
+                for blob in image_blobs:
+                    if idx > 2:
+                        break
                     try:
-                        ext = blob.get("ext") or "jpg"
+                        ext = (blob.get("ext") or "jpg").lower()
                         raw = blob.get("bytes")
                         if not raw:
                             continue
@@ -217,52 +240,48 @@ class NoticeWatcher:
                         embeds_to_send.append(embed)
 
                         idx += 1
-                        if idx > 2:
-                            break
                     except Exception:
                         continue
 
-                if idx <= 2:
-                    for url in image_urls:
-                        if idx > 2:
-                            break
-                        try:
-                            img_bytes, ctype = await _download_bytes(url, referer=n.url)
+                for url in image_urls:
+                    if idx > 2:
+                        break
+                    try:
+                        img_bytes, ctype = await _download_bytes(url, referer=n.url)
 
-                            ext = "jpg"
-                            c = (ctype or "").lower()
-                            if "png" in c:
-                                ext = "png"
-                            elif "gif" in c:
-                                ext = "gif"
-                            elif "webp" in c:
-                                ext = "webp"
+                        ext = "jpg"
+                        c = (ctype or "").lower()
+                        if "png" in c:
+                            ext = "png"
+                        elif "gif" in c:
+                            ext = "gif"
+                        elif "webp" in c:
+                            ext = "webp"
 
-                            filename = f"notice_{idx}.{ext}"
-                            files_to_send.append(
-                                discord.File(
-                                    fp=io.BytesIO(img_bytes), filename=filename
-                                )
-                            )
+                        filename = f"notice_{idx}.{ext}"
+                        files_to_send.append(
+                            discord.File(fp=io.BytesIO(img_bytes), filename=filename)
+                        )
 
-                            embed = discord.Embed()
-                            embed.set_image(url=f"attachment://{filename}")
-                            embeds_to_send.append(embed)
+                        embed = discord.Embed()
+                        embed.set_image(url=f"attachment://{filename}")
+                        embeds_to_send.append(embed)
 
-                            idx += 1
-                        except Exception:
-                            continue
+                        idx += 1
+                    except Exception:
+                        continue
 
                 if files_to_send:
                     await channel.send(
                         content=msg,
-                        files=files_to_send,  # 여러 파일
-                        embeds=embeds_to_send,  # 여러 임베드
+                        files=files_to_send,
+                        embeds=embeds_to_send,
                         allowed_mentions=allowed,
                     )
                 else:
                     # 이미지 전부 실패하면 텍스트만
                     await channel.send(msg, allowed_mentions=allowed)
+
             else:
                 await channel.send(msg, allowed_mentions=allowed)
 
@@ -281,7 +300,7 @@ def create_school_notice_watcher(bot: commands.Bot) -> NoticeWatcher:
         state_key="last_school_notice_id",
         fetch_list_func=fetch_school_notices,
         fetch_detail_func=fetch_school_notice_detail,
-        limit=3,
+        limit=10,
         label="학교 공지",
     )
 
@@ -294,6 +313,6 @@ def create_dept_notice_watcher(bot: commands.Bot) -> NoticeWatcher:
         state_key="last_dept_notice_id",
         fetch_list_func=fetch_dept_notices,
         fetch_detail_func=fetch_dept_notice_detail,
-        limit=3,
+        limit=10,
         label="학과 공지",
     )
