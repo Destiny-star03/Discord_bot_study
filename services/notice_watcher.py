@@ -173,7 +173,8 @@ class NoticeWatcher:
                 detail = {"text": "", "images": [], "files": []}
 
             body = _trim(detail.get("text", ""), 1500)
-            images = detail.get("images", [])
+            image_urls = detail.get("images", [])
+            image_blobs = detail.get("image_blobs", [])
             files = detail.get("files", [])
 
             msg = (
@@ -193,32 +194,74 @@ class NoticeWatcher:
             msg += "\n======================================="
 
             # 이미지 있으면 첨부+embed, 없으면 텍스트
-            if images:
-                img_url = images[0]
-                try:
-                    img_bytes, ctype = await _download_bytes(img_url, referer=n.url)
+            if image_urls or image_blobs:
+                files_to_send = []
+                embeds_to_send = []
 
-                    ext = "jpg"
-                    if "png" in ctype:
-                        ext = "png"
-                    elif "gif" in ctype:
-                        ext = "gif"
-                    elif "webp" in ctype:
-                        ext = "webp"
+                idx = 1
 
-                    filename = f"notice.{ext}"
-                    file = discord.File(fp=io.BytesIO(img_bytes), filename=filename)
+                for blob in image_blobs[:2]:
+                    try:
+                        ext = blob.get("ext") or "jpg"
+                        raw = blob.get("bytes")
+                        if not raw:
+                            continue
 
-                    embed = discord.Embed()
-                    embed.set_image(url=f"attachment://{filename}")
+                        filename = f"notice_{idx}.{ext}"
+                        files_to_send.append(
+                            discord.File(fp=io.BytesIO(raw), filename=filename)
+                        )
 
+                        embed = discord.Embed()
+                        embed.set_image(url=f"attachment://{filename}")
+                        embeds_to_send.append(embed)
+
+                        idx += 1
+                        if idx > 2:
+                            break
+                    except Exception:
+                        continue
+
+                if idx <= 2:
+                    for url in image_urls:
+                        if idx > 2:
+                            break
+                        try:
+                            img_bytes, ctype = await _download_bytes(url, referer=n.url)
+
+                            ext = "jpg"
+                            c = (ctype or "").lower()
+                            if "png" in c:
+                                ext = "png"
+                            elif "gif" in c:
+                                ext = "gif"
+                            elif "webp" in c:
+                                ext = "webp"
+
+                            filename = f"notice_{idx}.{ext}"
+                            files_to_send.append(
+                                discord.File(
+                                    fp=io.BytesIO(img_bytes), filename=filename
+                                )
+                            )
+
+                            embed = discord.Embed()
+                            embed.set_image(url=f"attachment://{filename}")
+                            embeds_to_send.append(embed)
+
+                            idx += 1
+                        except Exception:
+                            continue
+
+                if files_to_send:
                     await channel.send(
                         content=msg,
-                        file=file,
-                        embed=embed,
+                        files=files_to_send,  # 여러 파일
+                        embeds=embeds_to_send,  # 여러 임베드
                         allowed_mentions=allowed,
                     )
-                except Exception:
+                else:
+                    # 이미지 전부 실패하면 텍스트만
                     await channel.send(msg, allowed_mentions=allowed)
             else:
                 await channel.send(msg, allowed_mentions=allowed)
@@ -251,6 +294,6 @@ def create_dept_notice_watcher(bot: commands.Bot) -> NoticeWatcher:
         state_key="last_dept_notice_id",
         fetch_list_func=fetch_dept_notices,
         fetch_detail_func=fetch_dept_notice_detail,
-        limit=1,
+        limit=3,
         label="학과 공지",
     )
