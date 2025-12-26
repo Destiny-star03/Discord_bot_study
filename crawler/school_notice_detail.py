@@ -1,7 +1,7 @@
 # crawlers/school_notice_detail.py
 from urllib.parse import urljoin, urlsplit
 import re
-import requests
+from utils.http_client import get as http_get
 import base64
 from bs4 import BeautifulSoup
 
@@ -53,7 +53,7 @@ def decode_data_image(data_url: str):
 
 
 def fetch_notice_detail(detail_url: str) -> dict:
-    res = requests.get(detail_url, timeout=15, headers={"User-Agent": "Mozilla/5.0"})
+    res = http_get(detail_url, timeout=15)
     res.raise_for_status()
     if not res.encoding:
         res.encoding = res.apparent_encoding

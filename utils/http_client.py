@@ -25,7 +25,13 @@ def init_http() -> None:
     _inited = True
 
 
-def get(url: str, *, timeout: int = 15, referer: str | None = None, headers: dict | None = None) -> requests.Response:
+def get(
+    url: str,
+    *,
+    timeout: int = 15,
+    referer: str | None = None,
+    headers: dict | None = None
+) -> requests.Response:
     """
     Session 재사용 + 멀티스레드 안전하게 Lock으로 감싸서 요청.
     """

@@ -1,7 +1,6 @@
 # main
 from config import DISCORD_TOKEN
 import discord
-import truststore
 
 from bot.bot_clinet import create_bot
 from bot.commands import setup_commands, setup_command
@@ -9,15 +8,16 @@ from services.notice_watcher import (
     create_school_notice_watcher,
     create_dept_notice_watcher,
 )
-
-truststore.inject_into_ssl()
+from utils.http_client import init_http
 
 bot = create_bot()
+# init_http()
 school_watcher = create_school_notice_watcher(bot)
 dept_watcher = create_dept_notice_watcher(bot)
 
 if not DISCORD_TOKEN:
     raise RuntimeError("DISCORD_TOKEN이 설정되지 않았습니다. .env파일을 확인하세요.")
+
 
 setup_commands(bot)
 setup_command(bot)

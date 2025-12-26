@@ -3,10 +3,10 @@ import asyncio
 import json
 import os
 import io
-import requests
 import discord
 from discord import AllowedMentions
 from discord.ext import commands, tasks
+from utils.http_client import init_http, get as http_get
 
 from config import (
     SCHOOL_NOTICE_URL,
@@ -92,7 +92,7 @@ async def _download_bytes(url: str, referer: str | None = None) -> tuple[bytes, 
         headers = {"User-Agent": "Mozilla/5.0"}
         if referer:
             headers["Referer"] = referer
-        r = requests.get(url, timeout=15, headers=headers)
+        r = http_get(url, timeout=15, referer=referer)
         r.raise_for_status()
         return r.content, r.headers.get("Content-Type", "")
 
@@ -211,7 +211,7 @@ class NoticeWatcher:
                 msg += "\n\n📎 첨부파일이 있습니다. (공지 링크에서 확인)"
 
             msg += f"\n\n🔗 공지 바로가기:\n{n.url}\n"
-            msg += f"\n<@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}>"
+            msg += f"\n<@&{ROLE_ID_1}> <@&{ROLE_ID_2}> <@&{ROLE_ID_3}> <@&{ROLE_ID_4}>"
             msg += "\n======================================="
 
             # 이미지 있으면 첨부+embed, 없으면 텍스트
@@ -300,7 +300,7 @@ def create_school_notice_watcher(bot: commands.Bot) -> NoticeWatcher:
         state_key="last_school_notice_id",
         fetch_list_func=fetch_school_notices,
         fetch_detail_func=fetch_school_notice_detail,
-        limit=10,
+        limit=1,
         label="학교 공지",
     )
 
@@ -313,6 +313,6 @@ def create_dept_notice_watcher(bot: commands.Bot) -> NoticeWatcher:
         state_key="last_dept_notice_id",
         fetch_list_func=fetch_dept_notices,
         fetch_detail_func=fetch_dept_notice_detail,
-        limit=10,
+        limit=1,
         label="학과 공지",
     )
