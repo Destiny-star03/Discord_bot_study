@@ -300,7 +300,7 @@ def create_school_notice_watcher(bot: commands.Bot) -> NoticeWatcher:
         state_key="last_school_notice_id",
         fetch_list_func=fetch_school_notices,
         fetch_detail_func=fetch_school_notice_detail,
-        limit=5,
+        limit=1,
         label="학교 공지",
     )
 
@@ -313,6 +313,6 @@ def create_dept_notice_watcher(bot: commands.Bot) -> NoticeWatcher:
         state_key="last_dept_notice_id",
         fetch_list_func=fetch_dept_notices,
         fetch_detail_func=fetch_dept_notice_detail,
-        limit=5,
+        limit=1,
         label="학과 공지",
     )
