@@ -25,11 +25,10 @@ from config import (
 # from crawler.school_notice import fetch_school_notices
 # from crawler.dept_notice import fetch_dept_notices
 from crawler.notices import fetch_school_notices, fetch_dept_notices
-from crawler.school_notice_detail import (
+from crawler.notice_detail import (
     fetch_notice_detail as fetch_school_notice_detail,
+    fetch_notice_detail as fetch_dept_notice_detail,
 )
-from crawler.dept_notice_detail import fetch_notice_detail as fetch_dept_notice_detail
-
 from models.notice import Notice
 
 allowed = AllowedMentions(roles=True)
