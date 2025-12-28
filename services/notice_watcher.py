@@ -6,7 +6,7 @@ import io
 import discord
 from discord import AllowedMentions
 from discord.ext import commands, tasks
-from utils.http_client import init_http, get as http_get
+from utils.http_client import get as http_get
 
 from config import (
     SCHOOL_NOTICE_URL,

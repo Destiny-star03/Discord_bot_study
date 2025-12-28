@@ -11,5 +11,8 @@ from discord.ext import commands
 
 def setup_command(bot: commands.Bot) -> None:
     @bot.command()
-    async def 복사하기(ctx, *, text):
+    async def 따라하기(ctx, *, text):
         await ctx.send(text)
+        
+        
+

@@ -1,4 +1,4 @@
-# crawlers/school_notice_detail.py
+# crawlers/notice_detail.py
 from urllib.parse import urljoin, urlsplit
 import re
 from utils.http_client import get as http_get
@@ -321,4 +321,3 @@ def fetch_notice_detail(detail_url: str) -> dict:
         "image_blobs": image_blobs,  # data:image 디코딩 이미지
         "files": files,
     }
-
