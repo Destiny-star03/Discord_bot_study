@@ -1,28 +1,11 @@
-<<<<<<< HEAD
-import discord, random
-from discord.ext import commands
-
-import json
-with open("Token.json", "r") as flie:
-	data = json.load(flie)
-
-
-bot = commands.Bot(command_prefix="$", intents=discord.Intents.all())
-TOKEN = data['TOKEN']
-=======
 
 # main
 from config import DISCORD_TOKEN
 import discord
 import truststore
->>>>>>> 9f5d19884c9f60b5c93451eb8ed20db2bb195bee
-<<<<<<< HEADimport truststore
-
-
 
 from bot.bot_clinet import create_bot
-from bot.commands import setup_commands, setup_command
-from bot.commands import setup_command
+from bot.commands import  setup_command
 from services.notice_watcher import (
     create_school_notice_watcher,
     create_dept_notice_watcher,
