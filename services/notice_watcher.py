@@ -3,10 +3,10 @@ import asyncio
 import json
 import os
 import io
-import requests
 import discord
 from discord import AllowedMentions
 from discord.ext import commands, tasks
+from utils.http_client import get as http_get
 
 from config import (
     SCHOOL_NOTICE_URL,
@@ -25,11 +25,10 @@ from config import (
 # from crawler.school_notice import fetch_school_notices
 # from crawler.dept_notice import fetch_dept_notices
 from crawler.notices import fetch_school_notices, fetch_dept_notices
-from crawler.school_notice_detail import (
+from crawler.notice_detail import (
     fetch_notice_detail as fetch_school_notice_detail,
+    fetch_notice_detail as fetch_dept_notice_detail,
 )
-from crawler.dept_notice_detail import fetch_notice_detail as fetch_dept_notice_detail
-
 from models.notice import Notice
 
 allowed = AllowedMentions(roles=True)
@@ -92,7 +91,7 @@ async def _download_bytes(url: str, referer: str | None = None) -> tuple[bytes, 
         headers = {"User-Agent": "Mozilla/5.0"}
         if referer:
             headers["Referer"] = referer
-        r = requests.get(url, timeout=15, headers=headers)
+        r = http_get(url, timeout=15, referer=referer)
         r.raise_for_status()
         return r.content, r.headers.get("Content-Type", "")
 
@@ -300,7 +299,7 @@ def create_school_notice_watcher(bot: commands.Bot) -> NoticeWatcher:
         state_key="last_school_notice_id",
         fetch_list_func=fetch_school_notices,
         fetch_detail_func=fetch_school_notice_detail,
-        limit=10,
+        limit=1,
         label="학교 공지",
     )
 
@@ -313,6 +312,6 @@ def create_dept_notice_watcher(bot: commands.Bot) -> NoticeWatcher:
         state_key="last_dept_notice_id",
         fetch_list_func=fetch_dept_notices,
         fetch_detail_func=fetch_dept_notice_detail,
-        limit=10,
+        limit=1,
         label="학과 공지",
     )
