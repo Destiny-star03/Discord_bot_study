@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 
 from services.role_watcher import create_role_watcher
+
 # 인사
 # def setup_commands(bot: commands.Bot) -> None:
 #     @bot.command(name="안녕" ,help="인사말", aliases=["인사","하이"])
@@ -11,10 +12,10 @@ from services.role_watcher import create_role_watcher
 
 
 def setup_command(bot: commands.Bot) -> None:
-    role_watcher = create_role_watcher(bot)
     @bot.command()
     async def 따라하기(ctx, *, text):
         await ctx.send(text)
+
 
 def setup_role_commands(bot: commands.Bot):
     role_watcher = create_role_watcher(bot)
@@ -25,7 +26,9 @@ def setup_role_commands(bot: commands.Bot):
     )
     async def rolesetup(interaction: discord.Interaction):
         if not interaction.user.guild_permissions.administrator:
-            await interaction.response.send_message("관리자만 사용할 수 있습니다.", ephemeral=True)
+            await interaction.response.send_message(
+                "관리자만 사용할 수 있습니다.", ephemeral=True
+            )
             return
 
         await interaction.response.defer(ephemeral=True)
@@ -43,4 +46,3 @@ def setup_role_commands(bot: commands.Bot):
             f"완료! 역할 선택 메시지를 생성/갱신했습니다. (message_id={msg.id})",
             ephemeral=True,
         )
-

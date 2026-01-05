@@ -34,7 +34,7 @@ async def on_ready():
     dept_watcher.start()
     print(f"{bot.user.name}이(가) 연결 되었습니다.")
     await bot.change_presence(
-        status=discord.Status.online, activity=discord.Game("테스트")
+        status=discord.Status.online, activity=discord.Game("꿀 만드는 중")
     )
 
 

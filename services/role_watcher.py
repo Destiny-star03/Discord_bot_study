@@ -4,7 +4,7 @@ from __future__ import annotations
 import discord
 from discord.ext import commands
 
-from config import TEST_CHANNEL_ID
+from config import TEST_CHANNEL_ID2
 from services.role_message_store import load_role_message_id, save_role_message_id
 from ui.grade_role_view import GradeRoleView
 from ui.role_embed import build_role_embed
@@ -73,4 +73,4 @@ class RoleWatcher:
 
 
 def create_role_watcher(bot: commands.Bot) -> RoleWatcher:
-    return RoleWatcher(bot, channel_id=TEST_CHANNEL_ID)
+    return RoleWatcher(bot, channel_id=TEST_CHANNEL_ID2)
