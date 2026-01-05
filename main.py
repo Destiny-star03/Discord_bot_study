@@ -1,6 +1,8 @@
+
 # main
 from config import DISCORD_TOKEN
 import discord
+import truststore
 
 from bot.bot_clinet import create_bot
 from bot.commands import setup_command, setup_role_commands
@@ -8,6 +10,7 @@ from services.notice_watcher import (
     create_school_notice_watcher,
     create_dept_notice_watcher,
 )
+
 from services.role_watcher import create_role_watcher
 from utils.http_client import init_http
 
