@@ -210,7 +210,7 @@ class NoticeWatcher:
                 msg += "\n\n📎 첨부파일이 있습니다. (공지 링크에서 확인)"
 
             msg += f"\n\n🔗 공지 바로가기:\n{n.url}\n"
-            msg += f"\n<@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}> <@&{ROLE_ID_TEST}>"
+            msg += f"\n<@&{ROLE_ID_1}> <@&{ROLE_ID_2}> <@&{ROLE_ID_3}> <@&{ROLE_ID_4}>"
             msg += "\n======================================="
 
             # 이미지 있으면 첨부+embed, 없으면 텍스트
