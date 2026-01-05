@@ -22,7 +22,7 @@ ROLE_MESSAGE_ID_FILE = "role_message_id.txt"
 
 
 # 공지 ( 갱신 시간, 마지막 공지 ID저장 파일)
-CHECK_INTERVAL_SECONDS = 3600
+CHECK_INTERVAL_SECONDS = 3600 * 3
 STATE_FILE = "state.json"
 # 학교 공지
 SCHOOL_NOTICE_URL = "https://www.yc.ac.kr/yonam/web/cop/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000590"
