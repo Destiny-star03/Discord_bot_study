@@ -1,6 +1,6 @@
 # crawlers/notices.py
 import re
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urljoin
 
 from bs4 import BeautifulSoup
 from models.notice import Notice
@@ -63,45 +63,72 @@ def fetch_notices(list_url: str, limit: int = 10) -> list[Notice]:
     seen_ids: set[str] = set()
 
     for tr in soup.select("table tbody tr"):
-        td_num2 = tr.select_one("td.td_num2")
-        if not td_num2:
+        td_num = tr.select_one("td.b-num-box, td.td_num2")
+        if not td_num:
             continue
 
-        num_text = td_num2.get_text(strip=True)
+        num_text = td_num.get_text(strip=True)
         if not num_text.isdigit():
             continue
 
-        subject_td = tr.select_one("td.td_subject")
-        if not subject_td:
-            continue
+        # 새 버전 파싱
+        a_tag = tr.select_one("td.b-td-left a[data-article-no]")
+        if a_tag:
+            notice_id = a_tag["data-article-no"]
+            if notice_id in seen_ids:
+                continue
+            seen_ids.add(notice_id)
 
-        onclick = _extract_onclick(subject_td)
-        m = ONCLICK_RE.search(onclick)
-        if not m:
-            continue
+            title = a_tag.get_text(" ", strip=True)
+            if not title:
+                continue
 
-        bbs_id, ntt_id = m.group(1), m.group(2)
-        notice_id = ntt_id
-        if notice_id in seen_ids:
-            continue
-        seen_ids.add(notice_id)
+            writer_span = tr.select_one("span.b-writer")
+            date_span = tr.select_one("span.b-date")
+            hit_span = tr.select_one("span.hit")
 
-        for tag in subject_td.select("a.new_icon"):
-            tag.decompose()
+            dept = writer_span.get_text(strip=True) if writer_span else None
+            date = date_span.get_text(strip=True) if date_span else None
 
-        title = subject_td.get_text(" ", strip=True)
-        if not title:
-            continue
+            views_text = hit_span.get_text(strip=True).replace("조회수", "").strip() if hit_span else None
+            views = _to_int_or_none(views_text) if views_text else None
 
-        dept_el = tr.select_one("td.td_name")
-        views_el = tr.select_one("td.td_num")
-        date_el = tr.select_one("td.td_datetime")
+            href = a_tag.get("href", "")
+            full_url = urljoin(list_url, href) if href else list_url
 
-        dept = dept_el.get_text(strip=True) if dept_el else None
-        views = _to_int_or_none(views_el.get_text()) if views_el else None
-        date = date_el.get_text(strip=True) if date_el else None
+        else:
+            # 구버전 파싱 (폴백)
+            subject_td = tr.select_one("td.td_subject")
+            if not subject_td:
+                continue
 
-        full_url = _build_detail_url(list_url, bbs_id, ntt_id)
+            onclick = _extract_onclick(subject_td)
+            m = ONCLICK_RE.search(onclick)
+            if not m:
+                continue
+
+            bbs_id, ntt_id = m.group(1), m.group(2)
+            notice_id = ntt_id
+            if notice_id in seen_ids:
+                continue
+            seen_ids.add(notice_id)
+
+            for tag in subject_td.select("a.new_icon"):
+                tag.decompose()
+
+            title = subject_td.get_text(" ", strip=True)
+            if not title:
+                continue
+
+            dept_el = tr.select_one("td.td_name")
+            views_el = tr.select_one("td.td_num")
+            date_el = tr.select_one("td.td_datetime")
+
+            dept = dept_el.get_text(strip=True) if dept_el else None
+            views = _to_int_or_none(views_el.get_text()) if views_el else None
+            date = date_el.get_text(strip=True) if date_el else None
+
+            full_url = _build_detail_url(list_url, bbs_id, ntt_id)
 
         notices.append(
             Notice(

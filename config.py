@@ -25,9 +25,9 @@ ROLE_MESSAGE_ID_FILE = "role_message_id.txt"
 CHECK_INTERVAL_SECONDS = 3600 * 3
 STATE_FILE = "state.json"
 # 학교 공지
-SCHOOL_NOTICE_URL = "https://www.yc.ac.kr/yonam/web/cop/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000590"
+SCHOOL_NOTICE_URL = "https://www.yc.ac.kr/www/yc-notice.do"
 SCHOOL_NOTICE_CHANNEL_ID = 1454852316556689548
 
 # 학과 공지
-DEPT_NOTICE_URL = "https://www.yc.ac.kr/smartsw/web/cop/bbs/selectBoardList.do?bbsId=BBSMSTR_000000000565"
+DEPT_NOTICE_URL = "https://www.yc.ac.kr/smartsw/notice.do"
 DEPT_NOTICE_CHANNEL_ID = 1454852468088508662

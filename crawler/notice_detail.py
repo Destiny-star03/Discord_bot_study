@@ -232,7 +232,7 @@ def fetch_notice_detail(detail_url: str) -> dict:
 
     soup = BeautifulSoup(res.text, "html.parser")
 
-    wrap = soup.select_one(".view_wrap") or soup.body
+    wrap = soup.select_one(".b-content-box") or soup.select_one(".view_wrap") or soup.body
     if wrap is None:
         return {"text": "", "images": [], "image_blobs": [], "files": []}
 
@@ -290,7 +290,7 @@ def fetch_notice_detail(detail_url: str) -> dict:
 
     # ✅ 첨부파일 처리
     files: list[str] = []
-    file_box = soup.select_one(".board_file")
+    file_box = soup.select_one(".b-file-box") or soup.select_one(".board_file")
     if file_box:
         for a in file_box.select("a[href]"):
             href = (a.get("href") or "").strip()
