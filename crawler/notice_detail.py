@@ -84,11 +84,13 @@ def _clean_text(text: str) -> str:
 
 
 def _extract_body_text(wrap) -> str:
-    raw_nl = wrap.get_text("\n", strip=True)
+    contents = [item.get_text("").replace("\xa0", " ") for item in wrap.contents]
+    raw_nl = "\n".join(contents)
+
     if not _is_noisy_text(raw_nl):
         return _clean_text(raw_nl)
 
-    raw_sp = wrap.get_text(" ", strip=True)
+    raw_sp = " ".join(contents)
     return _normalize_broken_text(raw_sp)
 
 
@@ -232,7 +234,9 @@ def fetch_notice_detail(detail_url: str) -> dict:
 
     soup = BeautifulSoup(res.text, "html.parser")
 
-    wrap = soup.select_one(".b-content-box") or soup.select_one(".view_wrap") or soup.body
+    wrap = (
+        soup.select_one(".b-content-box") or soup.select_one(".view_wrap") or soup.body
+    )
     if wrap is None:
         return {"text": "", "images": [], "image_blobs": [], "files": []}
 
